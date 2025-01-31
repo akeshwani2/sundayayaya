@@ -373,6 +373,10 @@ const Chat = (props: Props) => {
     processChatThread();
   }, [
     handleAnswer,  // Now safe to include here
+    handleSearch,
+    handleWeather,
+    handleStock,
+    handleDictionary,
     lastChatMode,
     lastChatAnswer,
     chatThread,
