@@ -2,7 +2,7 @@
     {
       "origin": [
         "http://localhost:3000",
-        "https://sunday-smoky.vercel.app",
+        "https://sundayayaya.vercel.app/",
         "https://*.vercel.app"
       ],
       "method": ["PUT", "POST", "GET", "DELETE"],
