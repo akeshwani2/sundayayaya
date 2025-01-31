@@ -96,7 +96,7 @@ const Chat = (props: Props) => {
               try {
                 parsedArg = arg ? JSON.parse(arg) : {};
               } catch (parseError) {
-                console.error("Damn determining mode and arguments:", error);
+                console.error("Damn determining mode and arguments:", parseError);
               }
 
               dispatch(
@@ -107,8 +107,8 @@ const Chat = (props: Props) => {
                   arg: parsedArg,
                 })
               );
-            } catch (error) {
-              console.error("Error determining mode and arguments:", error);
+            } catch (modeError) {
+              console.error("Error determining mode and arguments:", modeError);
               setError("Error determining mode and arguments");
               setErrorFunction(() => handleMode.bind(null, lastChat.question));
             }
@@ -194,7 +194,8 @@ const Chat = (props: Props) => {
     chatThread,
     chatThread?.chats.length,
     dispatch,
-    id
+    id,
+    setError
   ]);
 
   const handleSearch = async (chatIndex: number) => {
