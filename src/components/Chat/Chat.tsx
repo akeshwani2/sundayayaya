@@ -189,10 +189,10 @@ const Chat = (props: Props) => {
 
     processChatThread();
   }, [
-    // Simplified dependencies using memoized values
     lastChatMode,
     lastChatAnswer,
-    chatThread?.chats.length // Add length as separate dependency
+    chatThread,
+    chatThread?.chats.length
   ]);
 
   const handleSearch = async (chatIndex: number) => {
