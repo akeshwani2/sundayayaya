@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import styles from "./Chat.module.css";
 import Source from "../Source/Source";
 import Answer from "../Answer/Answer";
@@ -46,7 +46,9 @@ const Chat = (props: Props) => {
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Add processing lock ref
+  // Add these ref declarations near your other refs
+  const chatIdCounterRef = useRef<number>(0);
+  const lastProcessedChatRef = useRef<number>(0);
   const isProcessing = useRef(false);
 
   // Extract complex dependencies into memoized variables
@@ -64,6 +66,7 @@ const Chat = (props: Props) => {
     }
   }, [chatThread?.chats]);
 
+  // 1. Declare handleAnswer FIRST from custom hook
   const { handleAnswer, handleRewrite, handleCancel } = useChatAnswer({
     threadId: id,
     chatThread,
@@ -74,131 +77,8 @@ const Chat = (props: Props) => {
     setIsCompleted,
   });
 
-  // Development Code
-  const lastProcessedChatRef = useRef<number>(0);
-  const chatIdCounterRef = useRef<number>(0);
-
-  useEffect(() => {
-    const processChatThread = async () => {
-      if (isProcessing.current || !chatThread || !chatThread.chats.length) return;
-      
-      isProcessing.current = true;
-      try {
-        const lastChatIndex = chatThread.chats.length - 1;
-        const lastChat = chatThread.chats[lastChatIndex];
-        const lastChatId = chatIdCounterRef.current;
-
-        if (lastChatId !== lastProcessedChatRef.current) {
-          if (!lastChat.mode) {
-            try {
-              const { mode, arg } = await handleMode(lastChat.question);
-              let parsedArg;
-              try {
-                parsedArg = arg ? JSON.parse(arg) : {};
-              } catch (parseError) {
-                console.error("Damn determining mode and arguments:", parseError);
-              }
-
-              dispatch(
-                updateMode({
-                  threadId: id,
-                  chatIndex: lastChatIndex,
-                  mode: mode,
-                  arg: parsedArg,
-                })
-              );
-            } catch (modeError) {
-              console.error("Error determining mode and arguments:", modeError);
-              setError("Error determining mode and arguments");
-              setErrorFunction(() => handleMode.bind(null, lastChat.question));
-            }
-            return;
-          }
-
-          if (lastChat.mode === "weather" && !lastChat.weatherResults) {
-            try {
-              console.log("lastChat.arg.location", lastChat.arg.location);
-              await handleWeather(lastChat.arg.location, lastChatIndex);
-            } catch (error) {
-              setError("Error fetching or processing search results");
-              setErrorFunction(() =>
-                handleWeather.bind(null, lastChat.arg.location, lastChatIndex)
-              );
-              return;
-            }
-          }
-
-          if (lastChat.mode === "stock" && !lastChat.stocksResults) {
-            try {
-              console.log("lastChat.arg.symbol", lastChat.arg.symbol);
-              await handleStock(lastChat.arg.symbol, lastChatIndex);
-            } catch (error) {
-              setError("Error fetching or processing search results");
-              setErrorFunction(() =>
-                handleStock.bind(null, lastChat.arg.symbol, lastChatIndex)
-              );
-              return;
-            }
-          }
-
-          if (lastChat.mode === "dictionary" && !lastChat.dictionaryResults) {
-            try {
-              console.log("lastChat.arg.word", lastChat.arg.symbol);
-              await handleDictionary(lastChat.arg.word, lastChatIndex);
-            } catch (error) {
-              setError("Error fetching or processing dictionary results");
-              setErrorFunction(() =>
-                handleDictionary.bind(null, lastChat.arg.word, lastChatIndex)
-              );
-              return;
-            }
-          }
-
-          if (lastChat.mode === "search" && !lastChat.searchResults) {
-            try {
-              await handleSearch(lastChatIndex);
-            } catch (error) {
-              setError("Error fetching or processing search results");
-              setErrorFunction(() => handleSearch.bind(null, lastChatIndex));
-              return;
-            }
-          }
-
-          if (
-            (lastChat.mode === "chat" || lastChat.mode === "image") &&
-            !lastChat.answer
-          ) {
-            try {
-              await handleAnswer(lastChat);
-            } catch (error) {
-              console.error("Error generating answer:", error);
-            }
-          } else if (lastChat.answer) {
-            setIsLoading(false);
-            setIsCompleted(true);
-          }
-
-          lastProcessedChatRef.current = lastChatId;
-        }
-
-        chatIdCounterRef.current++;
-      } finally {
-        isProcessing.current = false;
-      }
-    };
-
-    processChatThread();
-  }, [
-    lastChatMode,
-    lastChatAnswer,
-    chatThread,
-    chatThread?.chats.length,
-    dispatch,
-    id,
-    setError
-  ]);
-
-  const handleSearch = async (chatIndex: number) => {
+  // 2. Declare other handlers with useCallback
+  const handleSearch = useCallback(async (chatIndex: number) => {
     const chat = chatThread?.chats[chatIndex];
     setIsLoading(true);
     setIsCompleted(false);
@@ -255,7 +135,7 @@ const Chat = (props: Props) => {
       setError("Error fetching or processing search results");
       setErrorFunction(() => handleSearch.bind(null, chatIndex));
     }
-  };
+  }, [chatThread, id, dispatch, handleAnswer]);
 
   const handleWeather = async (location: string, chatIndex: number) => {
     const chat = chatThread?.chats[chatIndex];
@@ -379,6 +259,128 @@ const Chat = (props: Props) => {
       dispatch(addChat({ threadId: id, chat: newChat }));
     }
   };
+
+  // 3. Declare useEffect LAST
+  useEffect(() => {
+    const processChatThread = async () => {
+      if (isProcessing.current || !chatThread || !chatThread.chats.length) return;
+      
+      isProcessing.current = true;
+      try {
+        const lastChatIndex = chatThread.chats.length - 1;
+        const lastChat = chatThread.chats[lastChatIndex];
+        const lastChatId = chatIdCounterRef.current;
+
+        if (lastChatId !== lastProcessedChatRef.current) {
+          if (!lastChat.mode) {
+            try {
+              const { mode, arg } = await handleMode(lastChat.question);
+              let parsedArg;
+              try {
+                parsedArg = arg ? JSON.parse(arg) : {};
+              } catch (parseError) {
+                console.error("Damn determining mode and arguments:", parseError);
+              }
+
+              dispatch(
+                updateMode({
+                  threadId: id,
+                  chatIndex: lastChatIndex,
+                  mode: mode,
+                  arg: parsedArg,
+                })
+              );
+            } catch (modeError) {
+              console.error("Error determining mode and arguments:", modeError);
+              setError("Error determining mode and arguments");
+              setErrorFunction(() => handleMode.bind(null, lastChat.question));
+            }
+            return;
+          }
+
+          if (lastChat.mode === "weather" && !lastChat.weatherResults) {
+            try {
+              console.log("lastChat.arg.location", lastChat.arg.location);
+              await handleWeather(lastChat.arg.location, lastChatIndex);
+            } catch (error) {
+              setError("Error fetching or processing search results");
+              setErrorFunction(() =>
+                handleWeather.bind(null, lastChat.arg.location, lastChatIndex)
+              );
+              return;
+            }
+          }
+
+          if (lastChat.mode === "stock" && !lastChat.stocksResults) {
+            try {
+              console.log("lastChat.arg.symbol", lastChat.arg.symbol);
+              await handleStock(lastChat.arg.symbol, lastChatIndex);
+            } catch (error) {
+              setError("Error fetching or processing search results");
+              setErrorFunction(() =>
+                handleStock.bind(null, lastChat.arg.symbol, lastChatIndex)
+              );
+              return;
+            }
+          }
+
+          if (lastChat.mode === "dictionary" && !lastChat.dictionaryResults) {
+            try {
+              console.log("lastChat.arg.word", lastChat.arg.symbol);
+              await handleDictionary(lastChat.arg.word, lastChatIndex);
+            } catch (error) {
+              setError("Error fetching or processing dictionary results");
+              setErrorFunction(() =>
+                handleDictionary.bind(null, lastChat.arg.word, lastChatIndex)
+              );
+              return;
+            }
+          }
+
+          if (lastChat.mode === "search" && !lastChat.searchResults) {
+            try {
+              await handleSearch(lastChatIndex);
+            } catch (error) {
+              setError("Error fetching or processing search results");
+              setErrorFunction(() => handleSearch.bind(null, lastChatIndex));
+              return;
+            }
+          }
+
+          if (
+            (lastChat.mode === "chat" || lastChat.mode === "image") &&
+            !lastChat.answer
+          ) {
+            try {
+              await handleAnswer(lastChat);
+            } catch (error) {
+              console.error("Error generating answer:", error);
+            }
+          } else if (lastChat.answer) {
+            setIsLoading(false);
+            setIsCompleted(true);
+          }
+
+          lastProcessedChatRef.current = lastChatId;
+        }
+
+        chatIdCounterRef.current++;
+      } finally {
+        isProcessing.current = false;
+      }
+    };
+
+    processChatThread();
+  }, [
+    handleAnswer,  // Now safe to include here
+    lastChatMode,
+    lastChatAnswer,
+    chatThread,
+    chatThread?.chats.length,
+    dispatch,
+    id,
+    setError
+  ]);
 
   if (isFetching) {
     return (
