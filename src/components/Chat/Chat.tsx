@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import styles from "./Chat.module.css";
 import Source from "../Source/Source";
 import Answer from "../Answer/Answer";
@@ -48,6 +48,15 @@ const Chat = (props: Props) => {
 
   // Add processing lock ref
   const isProcessing = useRef(false);
+
+  // Extract complex dependencies into memoized variables
+  const lastChatMode = useMemo(() => {
+    return chatThread?.chats[chatThread?.chats.length - 1]?.mode;
+  }, [chatThread]);
+
+  const lastChatAnswer = useMemo(() => {
+    return chatThread?.chats[chatThread?.chats.length - 1]?.answer;
+  }, [chatThread]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -180,9 +189,10 @@ const Chat = (props: Props) => {
 
     processChatThread();
   }, [
-    // Simplify dependencies - only track changes to the last chat's mode and answer status
-    chatThread?.chats[chatThread?.chats.length - 1]?.mode,
-    chatThread?.chats[chatThread?.chats.length - 1]?.answer
+    // Simplified dependencies using memoized values
+    lastChatMode,
+    lastChatAnswer,
+    chatThread?.chats.length // Add length as separate dependency
   ]);
 
   const handleSearch = async (chatIndex: number) => {
