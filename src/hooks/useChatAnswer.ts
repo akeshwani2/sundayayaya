@@ -85,7 +85,7 @@ const useChatAnswer = ({
       if (gmailDoc.exists()) {
         try {
           const gmail = new GmailService(gmailDoc.data().accessToken);
-          const emailResponse = await gmail.getRecentEmails(500, "");
+          const emailResponse = await gmail.getRecentEmails(25, "");
           
           if (!emailResponse || emailResponse.length === 0) {
             setError('No emails found');
