@@ -192,7 +192,9 @@ const Chat = (props: Props) => {
     lastChatMode,
     lastChatAnswer,
     chatThread,
-    chatThread?.chats.length
+    chatThread?.chats.length,
+    dispatch,
+    id
   ]);
 
   const handleSearch = async (chatIndex: number) => {
